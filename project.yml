@@ -1,0 +1,36 @@
+name: Snapi
+options:
+  bundleIdPrefix: com.kisalaya
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+
+targets:
+  Snapi:
+    type: application
+    platform: macOS
+    sources:
+      - Sources
+      - path: Resources
+        buildPhase: resources
+    info:
+      path: Info.plist
+      properties:
+        CFBundleDisplayName: Snapi
+        CFBundleName: Snapi
+        CFBundleIconFile: AppIcon
+        ATSApplicationFontsPath: "."
+        LSUIElement: true
+        LSMinimumSystemVersion: "14.0"
+        NSHumanReadableCopyright: ""
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.kisalaya.snapi
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "5.9"
+        CODE_SIGN_IDENTITY: "Snapi Dev"
+        CODE_SIGN_STYLE: Manual
+        DEVELOPMENT_TEAM: ""
+        ENABLE_HARDENED_RUNTIME: NO
+        MACOSX_DEPLOYMENT_TARGET: "14.0"

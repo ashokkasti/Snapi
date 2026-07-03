@@ -1,0 +1,98 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"          # e.g. v0.1.0
+  workflow_dispatch:   # allow manual runs from the Actions tab
+
+permissions:
+  contents: write      # needed to create the GitHub Release
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.app || true
+
+      # --- Optional signing + notarization -------------------------------
+      # Fully avoids Gatekeeper's "unidentified developer" block. Requires a
+      # paid Apple Developer account. Set these repository secrets to enable:
+      #   MACOS_CERT_P12       base64 of your Developer ID Application .p12
+      #   MACOS_CERT_PASSWORD  the .p12 export password
+      #   MACOS_SIGN_IDENTITY  e.g. "Developer ID Application: Name (TEAMID)"
+      #   AC_API_KEY_ID / AC_API_ISSUER_ID / AC_API_KEY_P8 (App Store Connect API key)
+      # If the cert secret is absent the app is signed ad-hoc (still runs, but
+      # users must right-click → Open / run `xattr -cr`).
+      - name: Import signing certificate
+        if: env.MACOS_CERT_P12 != ''
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+        run: |
+          KEYCHAIN=build.keychain
+          security create-keychain -p actions "$KEYCHAIN"
+          security default-keychain -s "$KEYCHAIN"
+          security unlock-keychain -p actions "$KEYCHAIN"
+          echo "$MACOS_CERT_P12" | base64 --decode > cert.p12
+          security import cert.p12 -k "$KEYCHAIN" -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k actions "$KEYCHAIN"
+
+      - name: Build (release)
+        env:
+          SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+        run: |
+          xcodegen generate
+          xcodebuild \
+            -project Snapi.xcodeproj -scheme Snapi -configuration Release \
+            -derivedDataPath build ENABLE_DEBUG_DYLIB=NO \
+            CODE_SIGN_IDENTITY="${SIGN_IDENTITY:--}" \
+            build
+          APP=build/Build/Products/Release/Snapi.app
+          IDENTITY="${SIGN_IDENTITY:--}"
+          codesign --force --deep --options runtime --sign "$IDENTITY" "$APP"
+
+      - name: Notarize & staple
+        if: env.AC_API_KEY_P8 != ''
+        env:
+          AC_API_KEY_ID: ${{ secrets.AC_API_KEY_ID }}
+          AC_API_ISSUER_ID: ${{ secrets.AC_API_ISSUER_ID }}
+          AC_API_KEY_P8: ${{ secrets.AC_API_KEY_P8 }}
+        run: |
+          APP=build/Build/Products/Release/Snapi.app
+          mkdir -p ~/private_keys
+          echo "$AC_API_KEY_P8" > ~/private_keys/AuthKey.p8
+          ditto -c -k --keepParent "$APP" notarize.zip
+          xcrun notarytool submit notarize.zip \
+            --key ~/private_keys/AuthKey.p8 \
+            --key-id "$AC_API_KEY_ID" \
+            --issuer "$AC_API_ISSUER_ID" \
+            --wait
+          xcrun stapler staple "$APP"
+
+      - name: Create DMG
+        run: |
+          APP=build/Build/Products/Release/Snapi.app
+          STAGE=$(mktemp -d)
+          cp -R "$APP" "$STAGE/"
+          ln -s /Applications "$STAGE/Applications"
+          hdiutil create -volname "Snapi" -srcfolder "$STAGE" -ov -format UDZO Snapi.dmg
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Snapi-dmg
+          path: Snapi.dmg
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Snapi.dmg
+          generate_release_notes: true
