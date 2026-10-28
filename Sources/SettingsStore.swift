@@ -2,7 +2,7 @@ import AppKit
 import Carbon.HIToolbox
 
 enum HotkeyAction: String, CaseIterable {
-    case area, fullscreen, window, scrolling, ocr, pin, repeatLast
+    case area, fullscreen, window, scrolling, burst, ocr, pin, repeatLast
 
     var title: String {
         switch self {
@@ -10,6 +10,7 @@ enum HotkeyAction: String, CaseIterable {
         case .fullscreen: return "Capture Fullscreen"
         case .window: return "Capture Window"
         case .scrolling: return "Scrolling Capture"
+        case .burst: return "Burst Capture / Shoot"
         case .ocr: return "OCR Area to Text"
         case .pin: return "Pin Clipboard / Area"
         case .repeatLast: return "Repeat Last Area"
@@ -23,6 +24,7 @@ enum HotkeyAction: String, CaseIterable {
         case .fullscreen: return HotkeyCombo(keyCode: UInt32(kVK_ANSI_1), modifiers: cmdShift, display: "⌘⇧1")
         case .window: return HotkeyCombo(keyCode: UInt32(kVK_ANSI_3), modifiers: cmdShift, display: "⌘⇧3")
         case .scrolling: return HotkeyCombo(keyCode: UInt32(kVK_ANSI_5), modifiers: cmdShift, display: "⌘⇧5")
+        case .burst: return HotkeyCombo(keyCode: UInt32(kVK_ANSI_3), modifiers: UInt32(controlKey), display: "⌃3")
         case .ocr: return HotkeyCombo(keyCode: UInt32(kVK_ANSI_O), modifiers: cmdShift, display: "⌘⇧O")
         case .pin: return HotkeyCombo(keyCode: UInt32(kVK_ANSI_P), modifiers: cmdShift, display: "⌘⇧P")
         case .repeatLast: return HotkeyCombo(keyCode: UInt32(kVK_ANSI_R), modifiers: cmdShift, display: "⌘⇧R")

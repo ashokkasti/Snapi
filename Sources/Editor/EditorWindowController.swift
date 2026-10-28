@@ -25,6 +25,8 @@ extension Tool {
 final class EditorWindowController: NSWindowController, NSWindowDelegate {
     private static var openControllers: [EditorWindowController] = []
 
+    static var hasOpenEditors: Bool { !openControllers.isEmpty }
+
     private let editorDocument: EditorDocument
     private var canvas: CanvasView!
     private var scrollView: NSScrollView!
@@ -476,7 +478,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
             syncHistory()
         }
         Self.openControllers.removeAll { $0 === self }
-        if Self.openControllers.isEmpty {
+        if Self.openControllers.isEmpty && !BurstGalleryController.hasOpenGalleries {
             // Back to menu-bar-only once the last editor closes.
             NSApp.setActivationPolicy(.accessory)
         }

@@ -6,6 +6,7 @@ final class CaptureController {
     private var areaSession: AreaSelectionSession?
     private var windowSession: WindowSelectionSession?
     private var scrollController: ScrollCaptureController?
+    private var burstSession: BurstSession?
 
     private var lastArea: (displayID: CGDirectDisplayID, rect: CGRect)?
 
@@ -86,6 +87,50 @@ final class CaptureController {
             }
         }
     }
+
+    /// One hotkey drives burst mode: the first press selects the area, every
+    /// later press grabs it. The menu bar counter (or `finishBurst`) ends it.
+    func burstCaptureOrShoot() {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            if let burstSession {
+                burstSession.shoot()
+                return
+            }
+            // Selection activates Snapi; hand focus back so the user can keep working.
+            let previousApp = NSWorkspace.shared.frontmostApplication
+            selectArea { [weak self] result in
+                guard let self, let displayID = result.screen.displayID else { return }
+                self.rememberArea(result)
+                Task { @MainActor in
+                    let session = BurstSession(
+                        engine: self.engine,
+                        displayID: displayID,
+                        displayRect: result.displayRect,
+                        screen: result.screen
+                    ) { shots in
+                        self.burstSession = nil
+                        if !shots.isEmpty {
+                            BurstGalleryController.present(shots: shots)
+                        }
+                    }
+                    self.burstSession = session
+                    session.start()
+                    if previousApp?.processIdentifier != ProcessInfo.processInfo.processIdentifier {
+                        previousApp?.activate()
+                    }
+                }
+            }
+        }
+    }
+
+    func finishBurst() {
+        Task { @MainActor in
+            burstSession?.finish()
+        }
+    }
+
+    @MainActor var burstShotCount: Int? { burstSession?.shotCount }
 
     func beginOCRCapture() {
         selectArea { result in

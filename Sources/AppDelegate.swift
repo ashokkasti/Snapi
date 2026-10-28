@@ -1,8 +1,9 @@
 import AppKit
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem!
+    private var burstMenuItem: NSMenuItem?
     private let hotkeys = HotkeyManager()
     private let capture = CaptureController()
 
@@ -36,6 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func buildMenu() -> NSMenu {
         let menu = NSMenu()
+        menu.delegate = self
 
         func item(_ title: String, _ symbol: String?, _ selector: Selector, _ action: HotkeyAction?) -> NSMenuItem {
             let item = NSMenuItem(title: title, action: selector, keyEquivalent: "")
@@ -54,6 +56,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(item("Capture Window", "macwindow", #selector(captureWindow), .window))
         menu.addItem(item("Scrolling Capture", "arrow.up.and.down.square", #selector(scrollingCapture), .scrolling))
         menu.addItem(item("Repeat Last Area", "arrow.counterclockwise.square", #selector(repeatLast), .repeatLast))
+        let burst = item("Burst Capture", "square.stack.3d.down.right", #selector(burstCapture), .burst)
+        menu.addItem(burst)
+        burstMenuItem = burst
 
         let delayed = NSMenuItem(title: "Delayed Capture", action: nil, keyEquivalent: "")
         delayed.image = NSImage(systemSymbolName: "timer", accessibilityDescription: "Delayed Capture")
@@ -84,6 +89,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             (.fullscreen, { [weak self] in self?.capture.captureFullscreen() }),
             (.window, { [weak self] in self?.capture.beginWindowCapture() }),
             (.scrolling, { [weak self] in self?.capture.beginScrollingCapture() }),
+            (.burst, { [weak self] in self?.capture.burstCaptureOrShoot() }),
             (.ocr, { [weak self] in self?.capture.beginOCRCapture() }),
             (.pin, { [weak self] in self?.capture.pinClipboardOrArea() }),
             (.repeatLast, { [weak self] in self?.capture.repeatLastArea() }),
@@ -112,10 +118,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func captureWindow() { capture.beginWindowCapture() }
     @objc private func scrollingCapture() { capture.beginScrollingCapture() }
     @objc private func repeatLast() { capture.repeatLastArea() }
+    @objc private func burstCapture() {
+        if capture.burstShotCount != nil {
+            capture.finishBurst()
+        } else {
+            capture.burstCaptureOrShoot()
+        }
+    }
     @objc private func delayed3() { capture.delayedFullscreen(seconds: 3) }
     @objc private func delayed10() { capture.delayedFullscreen(seconds: 10) }
     @objc private func ocrArea() { capture.beginOCRCapture() }
     @objc private func pinClipboard() { capture.pinClipboardOrArea() }
     @objc private func openFolder() { NSWorkspace.shared.open(SettingsStore.shared.saveDirectory) }
     @objc private func openSettings() { SettingsWindowController.shared.show() }
+
+    // MARK: - NSMenuDelegate
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        guard let burstMenuItem else { return }
+        if let count = capture.burstShotCount {
+            burstMenuItem.title = "Finish Burst & Review (\(count) shot\(count == 1 ? "" : "s"))"
+            burstMenuItem.image = NSImage(systemSymbolName: "stop.circle", accessibilityDescription: "Finish Burst")
+        } else {
+            burstMenuItem.title = "Burst Capture   \(SettingsStore.shared.hotkey(for: .burst).display)"
+            burstMenuItem.image = NSImage(
+                systemSymbolName: "square.stack.3d.down.right",
+                accessibilityDescription: "Burst Capture"
+            )
+        }
+    }
 }

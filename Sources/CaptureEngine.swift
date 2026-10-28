@@ -59,6 +59,28 @@ final class CaptureEngine {
         return try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
     }
 
+    /// Prepares a reusable capturer for repeated shots of one region. The
+    /// shareable-content lookup and filter are built once, so each shot is a
+    /// single screenshot call. Snapi's own windows (dim overlay, HUD) are
+    /// excluded. `rect` is in display-local points, top-left origin.
+    func makeRegionCapturer(displayID: CGDirectDisplayID, rect: CGRect) async throws -> RegionCapturer {
+        let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+        guard let display = content.displays.first(where: { $0.displayID == displayID }) else {
+            throw CaptureError.noDisplay
+        }
+        let myPID = ProcessInfo.processInfo.processIdentifier
+        let ownApps = content.applications.filter { $0.processID == myPID }
+        let filter = SCContentFilter(display: display, excludingApplications: ownApps, exceptingWindows: [])
+        let config = SCStreamConfiguration()
+        let scale = CGFloat(filter.pointPixelScale)
+        config.sourceRect = rect
+        config.width = Int(rect.width * scale)
+        config.height = Int(rect.height * scale)
+        config.captureResolution = .best
+        config.showsCursor = false
+        return RegionCapturer(filter: filter, config: config)
+    }
+
     /// Captures a single window at native resolution (no shadow).
     func captureWindow(_ window: SCWindow) async throws -> CGImage {
         let filter = SCContentFilter(desktopIndependentWindow: window)
@@ -91,6 +113,21 @@ final class CaptureEngine {
         config.captureResolution = .best
         config.showsCursor = false
         return try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
+    }
+}
+
+/// Pre-built filter + configuration for repeated captures of one region.
+final class RegionCapturer {
+    private let filter: SCContentFilter
+    private let config: SCStreamConfiguration
+
+    init(filter: SCContentFilter, config: SCStreamConfiguration) {
+        self.filter = filter
+        self.config = config
+    }
+
+    func capture() async throws -> CGImage {
+        try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
     }
 }
 

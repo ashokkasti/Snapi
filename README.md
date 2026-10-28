@@ -26,6 +26,7 @@
 - **Window capture** — hover highlights windows, click to grab (clean, no shadow)
 - **Scrolling capture** — capture long pages; frames are stitched automatically while you scroll
 - **Repeat last area** — re-capture the exact same region with one hotkey
+- **Burst capture** — pick an area once, keep working, and tap right Shift (or the hotkey) for every shot; the rest of the screen dims, a menu bar counter tracks shots, and clicking it opens a gallery to pick, copy (paste straight into Figma), drag out, or save several at once
 - **Delayed capture** — 3 s / 10 s timer from the menu bar
 - Multi-display and Retina aware, native pixel resolution
 
@@ -58,6 +59,7 @@ All hotkeys are remappable in **Settings → Hotkeys**.
 | Capture fullscreen | `⌘⇧1` |
 | Capture window | `⌘⇧3` |
 | Scrolling capture | `⌘⇧5` |
+| Burst capture (select area, then each press — or a tap of right `⇧` — = shot) | `⌃3` |
 | OCR area → clipboard text | `⌘⇧O` |
 | Pin clipboard / area | `⌘⇧P` |
 | Repeat last area | `⌘⇧R` |

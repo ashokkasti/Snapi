@@ -25,12 +25,7 @@ final class ExportService {
 
     @discardableResult
     func saveToFile(_ image: CGImage) -> URL? {
-        let data: Data?
-        switch settings.imageFormat {
-        case .png: data = pngData(from: image)
-        case .jpg: data = jpegData(from: image, quality: settings.jpegQuality)
-        }
-        guard let data else { return nil }
+        guard let data = encodedData(image) else { return nil }
         let url = settings.screenshotFileURL()
         do {
             try FileManager.default.createDirectory(at: settings.saveDirectory, withIntermediateDirectories: true)
@@ -42,7 +37,15 @@ final class ExportService {
         }
     }
 
-    private func pngData(from image: CGImage) -> Data? {
+    /// Encodes per the user's format setting (PNG or JPG).
+    func encodedData(_ image: CGImage) -> Data? {
+        switch settings.imageFormat {
+        case .png: return pngData(from: image)
+        case .jpg: return jpegData(from: image, quality: settings.jpegQuality)
+        }
+    }
+
+    func pngData(from image: CGImage) -> Data? {
         encode(image, type: UTType.png, options: nil)
     }
 
