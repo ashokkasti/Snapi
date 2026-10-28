@@ -49,13 +49,7 @@ final class CaptureEngine {
             throw CaptureError.noDisplay
         }
         let filter = SCContentFilter(display: display, excludingWindows: [])
-        let config = SCStreamConfiguration()
-        let scale = CGFloat(filter.pointPixelScale)
-        config.sourceRect = rect
-        config.width = Int(rect.width * scale)
-        config.height = Int(rect.height * scale)
-        config.captureResolution = .best
-        config.showsCursor = false
+        let config = regionConfiguration(rect: rect, scale: CGFloat(filter.pointPixelScale))
         return try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
     }
 
@@ -71,14 +65,27 @@ final class CaptureEngine {
         let myPID = ProcessInfo.processInfo.processIdentifier
         let ownApps = content.applications.filter { $0.processID == myPID }
         let filter = SCContentFilter(display: display, excludingApplications: ownApps, exceptingWindows: [])
+        let config = regionConfiguration(rect: rect, scale: CGFloat(filter.pointPixelScale))
+        return RegionCapturer(filter: filter, config: config)
+    }
+
+    /// Region config snapped to whole device pixels. Selection rects from mouse
+    /// drags are fractional; passing them through makes ScreenCaptureKit
+    /// resample the frame, which comes out visibly blurry. Snapped, pixels are
+    /// copied 1:1.
+    private func regionConfiguration(rect: CGRect, scale: CGFloat) -> SCStreamConfiguration {
+        let x = (rect.minX * scale).rounded()
+        let y = (rect.minY * scale).rounded()
+        let width = max(1, (rect.width * scale).rounded())
+        let height = max(1, (rect.height * scale).rounded())
         let config = SCStreamConfiguration()
-        let scale = CGFloat(filter.pointPixelScale)
-        config.sourceRect = rect
-        config.width = Int(rect.width * scale)
-        config.height = Int(rect.height * scale)
+        config.sourceRect = CGRect(x: x / scale, y: y / scale, width: width / scale, height: height / scale)
+        config.width = Int(width)
+        config.height = Int(height)
+        config.scalesToFit = false
         config.captureResolution = .best
         config.showsCursor = false
-        return RegionCapturer(filter: filter, config: config)
+        return config
     }
 
     /// Captures a single window at native resolution (no shadow).
